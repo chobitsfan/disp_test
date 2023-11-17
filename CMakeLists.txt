@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 2.8)
+project( divid_img )
+find_package( OpenCV REQUIRED )
+include_directories( ${OpenCV_INCLUDE_DIRS} )
+add_executable( divid_img divid_img.cpp )
+target_link_libraries( divid_img ${OpenCV_LIBS} )
