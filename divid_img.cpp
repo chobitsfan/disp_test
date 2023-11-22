@@ -79,9 +79,12 @@ int main(int argc, char** argv )
     cv::cuda::GpuMat g_disp_map(400, 640, CV_16S, unified_ptr_disp);
     cv::Mat disp_map(400, 640, CV_16S, unified_ptr_disp);*/
     cv::cuda::GpuMat g_disp_map(400, 640, CV_16SC1);
-    cv::Mat disp_map;
+    cv::cuda::GpuMat g_disp_map2(400, 640, CV_32FC1);
     cv::cuda::GpuMat g_3d_img(400, 640, CV_32FC3);
     cv::cuda::GpuMat g_split_img[3];
+    cv::cuda::GpuMat g_depth_img;
+    cv::cuda::GpuMat g_depth_img_norm;
+    cv::Mat disp_map;
 
     cv::Ptr<cv::cuda::StereoSGM> sgbm = cv::cuda::createStereoSGM();
 
@@ -104,13 +107,20 @@ int main(int argc, char** argv )
             cv::cuda::remap(g_frame_l, g_frame_l_rect, g_cam0_map1, g_cam0_map2, INTER_LINEAR);
             cv::cuda::remap(g_frame_r, g_frame_r_rect, g_cam1_map1, g_cam1_map2, INTER_LINEAR);
             sgbm->compute(g_frame_l_rect, g_frame_r_rect, g_disp_map);
-            cv::cuda::multiply(g_disp_map, cv::Scalar(0.0625), g_disp_map);
-            cv::cuda::reprojectImageTo3D(g_disp_map, g_3d_img, Q, 3);
+            cv::cuda::multiply(g_disp_map, cv::Scalar(0.0625), g_disp_map2, 1,CV_32FC1);
+            cv::cuda::reprojectImageTo3D(g_disp_map2, g_3d_img, Q, 3);
             cv::cuda::split(g_3d_img, g_split_img);
+            //double min, max;
+            //cv::cuda::minMax(g_split_img[2], &min, &max);
+            //cout << min << "," << max << endl;
+            cv::cuda::threshold(g_split_img[2], g_depth_img, 0, 0, THRESH_TOZERO);
+            cv::cuda::threshold(g_depth_img, g_depth_img, 10 , 0, THRESH_TRUNC);
+            
+            cv::cuda::normalize(g_depth_img, g_depth_img_norm, 0, 255, NORM_MINMAX, CV_8UC1);
             //filteri->apply(g_frame_l, g_frame_l);
             //right = frame.colRange(0, frame.cols / 2);
             //left = frame.colRange(frame.cols / 2, frame.cols);
-            g_split_img[2].download(disp_map);
+            g_depth_img_norm.download(disp_map);
             imshow("example", disp_map);
             if (not_init) {
                 system("v4l2-ctl -c exposure=900,frame_rate=30");
